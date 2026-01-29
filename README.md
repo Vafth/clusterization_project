@@ -231,10 +231,7 @@ Przenieś dane z dumpu do bazy w klastrze Kubernetes.
 
 ```sh
 # Znajdź nazwę podu PostgreSQL
-$POD_NAME = kubectl get pods -l app=postgres -o jsonpath='{.items[0].metadata.name}'
-
-# Usuń istniejące tabele (jeśli są)
-kubectl exec -i $POD_NAME -- psql -U admin -d microservices -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
+$POD_NAME = kubectl get pods -l app=postgres
 
 # Załaduj dump
 cat ../backup.sql | kubectl exec -i $POD_NAME -- psql -U admin -d microservices
@@ -260,7 +257,7 @@ kubectl apply -f notes-deployment.yml
 kubectl apply -f gateway-deployment.yml
 
 # Sprawdź status
-kubectl get pods -w
+kubectl get pods
 ```
 
 **Czekaj aż wszystkie pody będą w stanie `Running` i `1/1 READY`.**
