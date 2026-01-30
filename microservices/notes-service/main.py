@@ -117,6 +117,29 @@ async def get_note(
         raise HTTPException(status_code=404, detail="Note not found")
     return note
 
+@app.put("/notes/{note_id}", response_model=NoteResponse)
+async def update_note(
+    note_id: int,
+    note_data: NoteUpdate,
+    user_id: int = Depends(get_user_id),
+    db: AsyncSession = Depends(get_db)
+):
+    stmt = select(Note).where(Note.id == note_id, Note.user_id == user_id)
+    result = await db.execute(stmt)
+    note = result.scalars().first()
+    
+    if not note:
+        raise HTTPException(status_code=404, detail="Note not found")
+    
+    if note_data.title is not None:
+        note.title = note_data.title
+    if note_data.content is not None:
+        note.content = note_data.content
+    
+    await db.flush()
+    await db.refresh(note)
+    return note
+
 @app.delete("/notes/{note_id}", status_code=204)
 async def delete_note(
     note_id: int,
@@ -131,3 +154,7 @@ async def delete_note(
     
     await db.delete(note)
     return None
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy"}

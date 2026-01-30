@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: notes-service
-        image: notes-service:v1
+        image: notes-service:v2
         imagePullPolicy: Never
         ports:
         - containerPort: 8002

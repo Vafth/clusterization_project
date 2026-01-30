@@ -25,7 +25,7 @@ python -c "import secrets; print(secrets.token_urlsafe(32))"
 
 **Wynik:** `oxtcpUJ6T1jeooAn-MElGPjkv1Ex6jLCGquep_WxpsQ` (przykład)
 
-Skopiuj wygenerowany klucz i dodaj jako `SECRET_KEY` do plików `.env`:
+Kopiujemy wygenerowany klucz i dodajemy jako `SECRET_KEY` do plików `.env`:
 - `./monolite/.env`
 - `./microservices/auth-service/.env`
 
@@ -45,10 +45,8 @@ docker run -d `
   postgres:16-alpine
 ```
 
-Dodaj `DATABASE_URL` do plików `.env`:
+Dodajemy `DATABASE_URL` do pliku `.env`:
 - `./monolite/.env`
-- `./microservices/auth-service/.env`
-- `./microservices/notes-service/.env`
 
 ```bash
 DATABASE_URL=postgresql+psycopg://admin:password123@localhost:5432/project_db
@@ -61,14 +59,14 @@ DATABASE_URL=postgresql+psycopg://admin:password123@localhost:5432/project_db
 ```sh
 cd ./monolite
 uv sync
-uv pip install -r .\requirements.txt
+uv pip install -r requirements.txt
 uv run uvicorn main:app --reload
 ```
 
 **Testowanie:**
-1. Otwórz przeglądarkę: `http://localhost:8000`
-2. Zarejestruj użytkownika
-3. Dodaj kilka notatek
+1. Otwieramy przeglądarkę: `http://localhost:8000`
+2. Rejestrujemy nowego użytkownika
+3. Dodajemy kilka notatek
 
 > **Uwaga:** Dane te będą później migrowane do mikroserwisów.
 
@@ -85,13 +83,11 @@ Wykonujemy kopię zapasową bazy danych monolitu.
 docker exec postgres-dev pg_dump -U admin project_db > backup.sql
 ```
 
-**Weryfikacja:** Sprawdź czy plik `backup.sql` został utworzony i zawiera dane.
-
 ---
 
 ### Krok 5: Konfiguracja środowiska Docker Compose
 
-Utwórz plik `./microservices/.env`:
+Tworzymy plik `./microservices/.env`:
 
 ```bash
 DB_USER=admin
@@ -100,7 +96,7 @@ DB_NAME=microservices
 SECRET_KEY=oxtcpUJ6T1jeooAn-MElGPjkv1Ex6jLCGquep_WxpsQ
 ```
 
-Zaktualizuj `DATABASE_URL` w plikach `.env` serwisów:
+Tworzymy oraz wypełniamy pliki `.env` serwisów:
 
 **`./microservices/auth-service/.env`:**
 ```bash
@@ -118,22 +114,35 @@ DATABASE_URL=postgresql+asyncpg://admin:password123@postgres:5432/microservices
 ### Krok 6: Czyszczenie i restart bazy danych
 
 ```sh
-# Usuń starą bazę
+# Usuwamy starą bazę
 docker rm -f postgres-dev
 
-# Usuń stare volumey Docker Compose (jeśli istnieją)
+# Usuwamy stare volumey Docker Compose (jeśli istnieją)
 docker volume rm microservices_postgres-data
 
-# Uruchom tylko PostgreSQL
+# Uruchamiamy nowy PostgreSQL ze środowiska docker-compose
 docker-compose up -d postgres
 ```
 
 ---
 
-### Krok 7: Restauracja danych w nowej bazie
+### Krok 7: Uruchomienie mikroserwisów
 
 ```sh
-# Załaduj dump
+# Uruchamiamy wszystkie serwisy
+docker-compose up -d
+
+# Sprawdzamy status
+docker-compose ps
+
+```
+
+---
+
+### Krok 8: Restauracja danych w nowej bazie
+
+```sh
+# Ładujemy dump
 cat backup.sql | docker exec -i postgres psql -U admin -d microservices
 
 # Weryfikacja
@@ -142,22 +151,9 @@ docker exec postgres psql -U admin -d microservices -c "SELECT * FROM users;"
 
 **Oczekiwany wynik:** Lista użytkowników z monolitu.
 
----
-
-### Krok 8: Uruchomienie mikroserwisów
-
-```sh
-# Uruchom wszystkie serwisy
-docker-compose up -d
-
-# Sprawdź status
-docker-compose ps
-
-```
-
 **Testowanie:**
-1. Otwórz `index.html` z folderu monolitu
-2. Zaloguj się używając danych z monolitu
+1. Otwieramy `index.html` z folderu monolitu
+2. Logujemy się używając danych z monolitu
 3. Notatki muszą być widoczne
 
 ---
@@ -167,12 +163,12 @@ docker-compose ps
 ### Krok 9: Przygotowanie klastra
 
 ```sh
-# Uruchom Minikube
+# Uruchamiamy Minikube
 minikube start --driver=docker --cpus=4 --memory=4096
 ```
 
 ```sh
-# Ustaw Docker environment na Minikube (w git bash konsoli)
+# Ustawiamy Docker environment na Minikube (w git bash konsoli)
 eval $(minikube docker-env)
 ```
 
@@ -185,7 +181,7 @@ eval $(minikube docker-env)
 ```sh
 cd microservices
 
-# Zbuduj obrazy (bez cache, aby użyć aktualnych requirements.txt)
+# Budujemy obrazy
 docker build --no-cache -t auth-service ./auth-service
 docker build --no-cache -t notes-service ./notes-service
 docker build --no-cache -t api-gateway ./api-gateway
@@ -198,7 +194,7 @@ docker images | Select-String "auth-service|notes-service|api-gateway"
 
 ### Krok 11: Konfiguracja Sekretów i ConfigMap
 
-Utwórz plik `./microservices/minikube/secrets.yml` żeby wkleić nowy SECRET_KEY:
+Uzupełniamy plik `./microservices/minikube/secrets.yml` wklejając nowy SECRET_KEY:
 
 ```yaml
 ...
@@ -225,26 +221,7 @@ kubectl get pods
 
 ---
 
-### Krok 13: Migracja danych do Kubernetes
-
-Przenieś dane z dumpu do bazy w klastrze Kubernetes.
-
-```sh
-# Znajdź nazwę podu PostgreSQL
-$POD_NAME = kubectl get pods -l app=postgres
-
-# Załaduj dump
-cat ../backup.sql | kubectl exec -i $POD_NAME -- psql -U admin -d microservices
-
-# Weryfikacja
-kubectl exec -i $POD_NAME -- psql -U admin -d microservices -c "SELECT * FROM users;"
-```
-
-**Oczekiwany wynik:** Lista użytkowników z monolitu.
-
----
-
-### Krok 14: Wdrożenie serwisów aplikacji
+### Krok 13: Wdrożenie serwisów aplikacji
 
 ```sh
 # Deploy auth-service
@@ -256,11 +233,33 @@ kubectl apply -f notes-deployment.yml
 # Deploy api-gateway
 kubectl apply -f gateway-deployment.yml
 
-# Sprawdź status
+# Sprawdzamy status
 kubectl get pods
 ```
 
-**Czekaj aż wszystkie pody będą w stanie `Running` i `1/1 READY`.**
+**Czekamy aż wszystkie pody będą w stanie `Running` i `1/1 READY`.**
+
+---
+
+### Krok 14: Migracja danych do Kubernetes
+
+Przenosimy dane z dumpu do bazy w klastrze Kubernetes.
+
+```sh
+# Dostajemy nazwę podu PostgreSQL
+kubectl get pods -l app=postgres
+
+#NAME                        READY   STATUS    RESTARTS   AGE
+#postgres-54fd9cb4cd-gfzkz   1/1     Running   0          5m34s
+
+# Ładujemy dump
+cat ../backup.sql | kubectl exec -i postgres-54fd9cb4cd-gfzkz -- psql -U admin -d microservices
+
+# Weryfikacja
+kubectl exec -i postgres-54fd9cb4cd-gfzkz -- psql -U admin -d microservices -c "SELECT * FROM users;"
+```
+
+**Oczekiwany wynik:** Lista użytkowników z monolitu.
 
 ---
 
@@ -268,23 +267,17 @@ kubectl get pods
 
 Aby aplikacja WWW (`index.html`) mogła połączyć się z API, wystawiamy Bramę API na zewnątrz:
 
-**Opcja 1: Port Forwarding (dla development)**
+**Port Forwarding (dla development)**
 ```sh
 kubectl port-forward service/api-gateway 8000:8000
 ```
 
-**Opcja 2: Minikube Service (automatyczny URL)**
-```sh
-minikube service api-gateway --url
-```
-
 **Testowanie:**
-1. Otwórz `index.html`
-2. Zaloguj się używając danych z monolitu
-3. Sprawdź czy wszystkie funkcje działają
+1. Otwieramy `index.html`
+2. Łogujemy się używając danych z monolitu
+3. Sprawdzamy czy wszystkie funkcje działają oraz czy są notatki z poprzedniej bazy
 
 ---
-
 
 ## Przydatne komendy
 

@@ -11,6 +11,7 @@ COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
 
 # Install dependencies with uv
 COPY requirements.txt .
+RUN uv pip install --system --no-cache --upgrade pip  
 RUN uv pip install --system --no-cache -r requirements.txt
 
 # Copy application code

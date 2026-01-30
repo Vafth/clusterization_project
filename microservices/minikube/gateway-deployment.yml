@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - name: api-gateway
-        image: api-gateway:v1
+        image: api-gateway:v2
         imagePullPolicy: Never
         ports:
         - containerPort: 8000
